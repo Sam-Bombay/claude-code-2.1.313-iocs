@@ -1,0 +1,93 @@
+{
+  "campaign": "Anthropic.claude-code 2.1.313 supply-chain compromise",
+  "summary": "The official Claude Code extension for VS Code / Cursor, version 2.1.313, was served from the Cursor marketplace on 29 Oct 2026 with an injected payload that plants an SSH key, attempts to enable remote login, opens a reverse SSH tunnel, and beacons host recon. Extensions auto-update, so affected hosts did not choose the version.",
+  "dates": {
+    "exposure_window_local_pt": "2026-10-29T02:27 to 2026-10-29T13:35",
+    "malicious_version": "2.1.313",
+    "fixed_version": "2.1.314",
+    "note": "2.1.314 and later do not remove keys or persistence left by 2.1.313; removal is a separate, per-host step."
+  },
+  "sources": [
+    {"publisher": "Cursor", "date": "2026-10-29", "url": "https://cursor.com/blog/claude-code-extension-security-notice", "kind": "vendor advisory"},
+    {"publisher": "Phorion", "date": "2026-10-30", "url": "https://phorion.io/blog/offical-claude-code-vsx-compromise/", "kind": "technical analysis"},
+    {"publisher": "Kevin Beaumont", "date": "2026-10-30", "url": "https://doublepulsar.com/anthropic-hacked-to-deliver-remote-access-trojan-to-claude-developer-laptops-worldwide-1148a92baae2", "kind": "reporting"}
+  ],
+  "hashes": {
+    "extension_js_sha256": "ecb58cb29078d9646ad1dcdbe51526f2d9cfea06be5fb2ab183e8ecc3ab6bf15",
+    "vsix_darwin_arm64_sha256": "432ccdee3801f99e52b8fe31f69ea9870118e96ea7ef9ecabed1479621b5ab62",
+    "vsix_darwin_arm64_md5": "da5469c4221775e9fe2e413e59ca7fd9",
+    "vsix_win32_x64_sha256": "3de1722901165769893bef57c72594e9a54459faa23f3091b136b79966edd081",
+    "vsix_win32_x64_md5": "bd3b71ddf3d0cc3af76249afd2c0eda1"
+  },
+  "network": {
+    "c2_ip": "134.209.82.225",
+    "reverse_ssh": "tunnel@134.209.82.225:22",
+    "beacon_external": "http://134.209.82.225:8099/beacon",
+    "beacon_loopback": "http://127.0.0.1:8099/beacon",
+    "status": "attacker server taken offline 29-30 Oct 2026; a clean network check today does not clear a host",
+    "benign_lookups": ["ifconfig.me", "api.ipify.org"]
+  },
+  "ssh": {
+    "planted_key_comment": "svc-telemetry",
+    "tunnel_key_comment": "svc-telemetry-tun",
+    "planted_key_fingerprint_sha256": "SHA256:0Z6R+DF64Do2nwQic8a7kkfDLNNk4IiK+2U2Rci4htk",
+    "tunnel_key_fingerprint_sha256": "SHA256:KOAU57+ZG6u3MG4WwzPzPX2O5YEe9qdOC1Bl+6MVyDQ",
+    "planted_key_blob": "AAAAC3NzaC1lZDI1NTE5AAAAIDdvylCEJ/k2TpezcTfedrkHyFSK9IZ3vmP6vhY4Ss0P"
+  },
+  "files": {
+    "macos": [
+      "~/.vscode/extensions/anthropic.claude-code-2.1.313-darwin-arm64",
+      "~/.cursor/extensions/anthropic.claude-code-2.1.313-darwin-arm64",
+      "~/.ssh/authorized_keys (svc-telemetry entry)",
+      "$TMPDIR/.stk_<10 hex chars>",
+      "~/.config/.smt",
+      "~/.config/.smtk",
+      "~/Library/LaunchAgents/com.apple.sysmond.plist"
+    ],
+    "linux": [
+      "~/.vscode/extensions/anthropic.claude-code-2.1.313-*",
+      "~/.ssh/authorized_keys (svc-telemetry entry)",
+      "/tmp/.stk_<10 hex chars>",
+      "~/.config/.smt",
+      "~/.config/.smtk",
+      "crontab: @reboot entry executing ~/.config/.smt"
+    ],
+    "windows": [
+      "%USERPROFILE%\\.ssh\\authorized_keys (svc-telemetry entry)",
+      "C:\\ProgramData\\ssh\\administrators_authorized_keys (svc-telemetry entry)",
+      "%USERPROFILE%\\.config\\smt.cmd",
+      "%USERPROFILE%\\.config\\smtk",
+      "%TEMP%\\.stk_<10 hex chars>",
+      "scheduled task 'SysMon' (requests SYSTEM)",
+      "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\sysmon.cmd"
+    ]
+  },
+  "process": [
+    "ssh -N -R '*:0:localhost:22' with StrictHostKeyChecking=no, UserKnownHostsFile=/dev/null, ServerAliveInterval=30, ExitOnForwardFailure=yes, IdentitiesOnly=yes",
+    "autossh -M 0",
+    "systemsetup -setremotelogin on",
+    "schtasks /create /tn SysMon",
+    "Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0"
+  ],
+  "collected_by_implant": [
+    "hostname", "username", "os", "architecture", "home directory path",
+    "environment variable names", "working directories", "configured git email", "public IP"
+  ],
+  "remediation": {
+    "vendor_scripts": [
+      "https://cursor.com/static/security/claude-code-extension/remediate-macos.sh",
+      "https://cursor.com/static/security/claude-code-extension/remediate-windows.ps1"
+    ],
+    "order": [
+      "isolate and snapshot the host before touching it",
+      "remove the svc-telemetry key from authorized_keys (check fingerprints, not just comments)",
+      "remove ~/.config/.smt, ~/.config/.smtk, $TMPDIR/.stk_*, ~/Library/LaunchAgents/com.apple.sysmond.plist and unload the agent",
+      "rotate every credential reachable from the host: cloud keys, git/npm tokens, .env files, ssh keys, browser sessions",
+      "decide rebuild vs clean; clean is only defensible with an evidence file and a re-run"
+    ]
+  },
+  "caveat": "On macOS the implant's attempt to enable Remote Login usually fails when launched as a normal user (systemsetup returns an access error that the payload misreads). The key, the persistence and the recon beacon still occur, and hosts where Remote Login was already enabled were fully exposed.",
+  "generated": "2026-10-30",
+  "license": "CC-BY-4.0",
+  "compiled_by": "Noir & Co. from the three published sources above; no original telemetry"
+}
